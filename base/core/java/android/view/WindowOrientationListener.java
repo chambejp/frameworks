@@ -368,7 +368,7 @@ public abstract class WindowOrientationListener {
             // or when we see values of (0, 0, 0) which indicates that we polled the
             // accelerometer too soon after turning it on and we don't have any data yet.
             final long now = event.timestamp;
-            final float timeDeltaMS = 800; //(now - mLastTimestamp) * 0.000001f; Set our time delta to 800MS, our sensor returns values that are to high since it's slow.
+            final float timeDeltaMS = (now - mLastTimestamp) * 0.000001f;
             boolean skipSample;
             if (timeDeltaMS <= 0 || timeDeltaMS > MAX_FILTER_DELTA_TIME_MS
                     || (x == 0 && y == 0 && z == 0)) {
@@ -379,7 +379,7 @@ public abstract class WindowOrientationListener {
                 skipSample = true;
             } else {
                 final float alpha = timeDeltaMS / (FILTER_TIME_CONSTANT_MS + timeDeltaMS);
-             //   x = alpha * (x - mLastFilteredX) + mLastFilteredX;
+                x = alpha * (x - mLastFilteredX) + mLastFilteredX;
                 y = alpha * (y - mLastFilteredY) + mLastFilteredY;
                 z = alpha * (z - mLastFilteredZ) + mLastFilteredZ;
                 if (log) {
@@ -389,14 +389,14 @@ public abstract class WindowOrientationListener {
                 skipSample = false;
             }
             mLastTimestamp = now;
-   //         mLastFilteredX = x;
-   //         mLastFilteredY = y;
-   //         mLastFilteredZ = z;
+            mLastFilteredX = x;
+            mLastFilteredY = y;
+            mLastFilteredZ = z;
 
             final int oldProposedRotation = getProposedRotation();
             if (!skipSample) {
                 // Calculate the magnitude of the acceleration vector.
-                final float magnitude = 7; //(float) Math.sqrt(x * x + y * y + z * z);
+                final float magnitude = (float) Math.sqrt(x * x + y * y + z * z);
                 if (magnitude < MIN_ACCELERATION_MAGNITUDE
                         || magnitude > MAX_ACCELERATION_MAGNITUDE) {
                     if (log) {
@@ -411,8 +411,8 @@ public abstract class WindowOrientationListener {
                     //   -90 degrees: screen horizontal and facing the ground (overhead)
                     //     0 degrees: screen vertical
                     //    90 degrees: screen horizontal and facing the sky (on table)
-                    final int tiltAngle = 10; //(int) Math.round(
-                            //Math.asin(z / magnitude) * RADIANS_TO_DEGREES);
+                    final int tiltAngle = (int) Math.round(
+                            Math.asin(z / magnitude) * RADIANS_TO_DEGREES);
 
                     // If the tilt angle is too close to horizontal then we cannot determine
                     // the orientation angle of the screen.
@@ -426,46 +426,16 @@ public abstract class WindowOrientationListener {
                         // Calculate the orientation angle.
                         // This is the angle between the x-y projection of the up vector onto
                         // the +y-axis, increasing clockwise in a range of [0, 360] degrees.
-                       /* int orientationAngle = (int) Math.round(
+                        int orientationAngle = (int) Math.round(
                                 -Math.atan2(-x, y) * RADIANS_TO_DEGREES);
                         if (orientationAngle < 0) {
                             // atan2 returns [-180, 180]; normalize to [0, 360]
                             orientationAngle += 360;
-                        }*/
+                        }
 
                         // Find the nearest rotation.
-                       // int nearestRotation = (orientationAngle + 45) / 90;
-                        
-	int orientationAngle = 0;
-	int nearestRotation = 0;
-	int x1 = Math.round(x);
-	//Slog.v(TAG, "Accelerometer Data X = " + event.values[ACCELEROMETER_DATA_X]);
-	Slog.v(TAG, "X = " + x1);
-	switch (x1) {
-		case 2:  // /\  // 0 degrees Normal Orientation logo to the right Rotation 1
-			orientationAngle = 45;
-			nearestRotation = 1;
-			break;
-
-		case 3: // < 90 degrees logo up Rotation 2
-			orientationAngle = 135;
-			nearestRotation = 2;
-			break;
-
-		case 4: // \/ 180 degrees logo to bottom Rotation 3
-			orientationAngle = 225;
-			nearestRotation = 3;
-			break;
-
-		case 5: // > 270 degrees logo to right (Current Locked Orientation) Rotation 4
-			orientationAngle = 315;
-			nearestRotation = 4;
-			break;
-
-	    	      }
-
-
-			if (nearestRotation == 4) {
+                        int nearestRotation = (orientationAngle + 45) / 90;
+                        if (nearestRotation == 4) {
                             nearestRotation = 0;
                         }
 
@@ -473,7 +443,7 @@ public abstract class WindowOrientationListener {
                         // The confidence of the proposal is 1.0 when it is ideal and it
                         // decays exponentially as the proposal moves further from the ideal
                         // angle, tilt and magnitude of the proposed orientation.
-                        /*if (!isTiltAngleAcceptable(nearestRotation, tiltAngle)
+                        if (!isTiltAngleAcceptable(nearestRotation, tiltAngle)
                                 || !isOrientationAngleAcceptable(nearestRotation,
                                         orientationAngle)) {
                             if (log) {
@@ -481,15 +451,15 @@ public abstract class WindowOrientationListener {
                                         + "magnitude=" + magnitude + ", tiltAngle=" + tiltAngle
                                         + ", orientationAngle=" + orientationAngle);
                             }
-                            clearProposal();*/
-                       // } else {
+                            clearProposal();
+                        } else {
                             if (log) {
                                 Slog.v(TAG, "Proposal: "
                                         + "magnitude=" + magnitude
                                         + ", tiltAngle=" + tiltAngle
                                         + ", orientationAngle=" + orientationAngle
                                         + ", proposalRotation=" + mProposalRotation);
-                         //   }
+                            }
                             updateProposal(nearestRotation, now / 1000000L,
                                     magnitude, tiltAngle, orientationAngle);
                         }
@@ -500,8 +470,8 @@ public abstract class WindowOrientationListener {
             // Write final statistics about where we are in the orientation detection process.
             final int proposedRotation = getProposedRotation();
             if (log) {
-                final float proposalConfidence = 1; //Math.min(
-//                        mProposalAgeMS * 1.0f / SETTLE_TIME_MS, 1.0f);
+                final float proposalConfidence = Math.min(
+                        mProposalAgeMS * 1.0f / SETTLE_TIME_MS, 1.0f);
                 Slog.v(TAG, "Result: currentRotation=" + mOrientationListener.mCurrentRotation
                         + ", proposedRotation=" + proposedRotation
                         + ", timeDeltaMS=" + timeDeltaMS
@@ -627,7 +597,7 @@ public abstract class WindowOrientationListener {
                     break;
                 }
             }
-            mProposalAgeMS = 20400;
+            mProposalAgeMS = age;
         }
 
         private static int angleAbsoluteDelta(int a, int b) {
